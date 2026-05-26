@@ -7,12 +7,13 @@ import dev.relicweapon.listeners.DamageListener;
 import dev.relicweapon.listeners.InteractListener;
 import dev.relicweapon.listeners.ProjectileListener;
 import dev.relicweapon.managers.AbilityManager;
-import org.bukkit.command.Command;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jspecify.annotations.NonNull;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 public final class RelicWeaponPlugin extends JavaPlugin {
@@ -42,6 +43,50 @@ public final class RelicWeaponPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new DamageListener(this),      this);
         getServer().getPluginManager().registerEvents(new ProjectileListener(this),  this);
 
+        // Modern Paper Command Registration
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            final Commands commands = event.registrar();
+
+            commands.register(
+                Commands.literal("relicweapon")
+                    // /relicweapon give
+                    .then(Commands.literal("give").executes(ctx -> {
+                        CommandSender sender = ctx.getSource().getSender();
+                        if (!(sender instanceof Player player)) {
+                            sender.sendMessage("§cOnly players can receive the Relic Weapon.");
+                            return 1;
+                        }
+                        if (!player.hasPermission("relicweapon.give")) {
+                            player.sendMessage("§cYou don't have permission.");
+                            return 1;
+                        }
+                        player.getInventory().addItem(itemManager.createRelicWeapon());
+                        player.sendMessage("§5§lRelic Weapon §7has been added to your inventory!");
+                        return 1;
+                    }))
+                    // /relicweapon reload
+                    .then(Commands.literal("reload").executes(ctx -> {
+                        CommandSender sender = ctx.getSource().getSender();
+                        if (!sender.hasPermission("relicweapon.reload")) {
+                            sender.sendMessage("§cYou don't have permission.");
+                            return 1;
+                        }
+                        reloadConfig();
+                        configHandler.reload();
+                        sender.sendMessage("§aRelicWeapon config reloaded.");
+                        return 1;
+                    }))
+                    .executes(ctx -> {
+                        // Default fallback when typing just /relicweapon with no arguments
+                        ctx.getSource().getSender().sendMessage("§eUsage: /relicweapon [give|reload]");
+                        return 1;
+                    })
+                    .build(),
+                "Main command for RelicWeaponPlugin",
+                List.of("rw") // Handles the /rw shorthand alias automatically
+            );
+        });
+
         Logger log = getLogger();
         log.info("RelicWeaponPlugin enabled! Paper 26.1 / Java 25");
         log.info("Model IDs: idle=" + configHandler.getModelId()
@@ -53,45 +98,6 @@ public final class RelicWeaponPlugin extends JavaPlugin {
     public void onDisable() {
         if (cooldownManager != null) cooldownManager.cancelAll();
         getLogger().info("RelicWeaponPlugin disabled.");
-    }
-
-    // ─── Command handler ────────────────────────────────────────────────────────
-
-    @Override
-    public boolean onCommand(@NonNull CommandSender sender,
-                             @NonNull Command command,
-                             @NonNull String label,
-                             String @NonNull [] args) {
-
-        if (!command.getName().equalsIgnoreCase("relicweapon")) return false;
-
-        if (args.length == 0 || args[0].equalsIgnoreCase("give")) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("§cOnly players can receive the Relic Weapon.");
-                return true;
-            }
-            if (!player.hasPermission("relicweapon.give")) {
-                player.sendMessage("§cYou don't have permission.");
-                return true;
-            }
-            player.getInventory().addItem(itemManager.createRelicWeapon());
-            player.sendMessage("§5§lRelic Weapon §7has been added to your inventory!");
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("reload")) {
-            if (!sender.hasPermission("relicweapon.reload")) {
-                sender.sendMessage("§cYou don't have permission.");
-                return true;
-            }
-            reloadConfig();
-            configHandler.reload();
-            sender.sendMessage("§aRelicWeapon config reloaded.");
-            return true;
-        }
-
-        sender.sendMessage("§eUsage: /relicweapon [give|reload]");
-        return true;
     }
 
     // ─── Static accessor ────────────────────────────────────────────────────────
