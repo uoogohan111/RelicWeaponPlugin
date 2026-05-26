@@ -35,7 +35,7 @@ public final class ItemManager {
      * Creates a fully configured Relic Weapon ItemStack.
      */
     public ItemStack createRelicWeapon() {
-        ItemStack item = new ItemStack(Material.TRIDENT);
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
         ItemMeta meta  = item.getItemMeta();
 
         if (meta == null) return item; // should never happen for TRIDENT
