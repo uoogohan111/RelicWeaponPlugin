@@ -95,7 +95,7 @@ public final class SpearLungeAbility implements Ability {
         plugin.items().setModelState(weapon, "idle");
 
         attacker.getWorld().playSound(
-            attacker.getLocation(), Sound.ENTITY_MACE_SMASH_GROUND, 0.9f, 1.1f);
+            attacker.getLocation(), Sound.ITEM_MACE_SMASH_GROUND, 0.9, 1.1f);
 
         if (!plugin.cooldowns().isOnCooldown(attacker, COOLDOWN_KEY)) {
             plugin.cooldowns().setCooldown(attacker, COOLDOWN_KEY,
