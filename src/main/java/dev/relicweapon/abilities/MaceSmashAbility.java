@@ -2,6 +2,8 @@ package dev.relicweapon.abilities;
 
 import dev.relicweapon.RelicWeaponPlugin;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -10,16 +12,6 @@ import org.bukkit.util.Vector;
 
 import java.util.Collection;
 
-/**
- * Mace-style smash ability (Minecraft 1.21 mechanic).
- * <ul>
- *   <li>Bonus damage based on blocks fallen before the hit.</li>
- *   <li>Wind-burst AOE knockback on impact (like the Wind Burst enchantment).</li>
- *   <li>Resets the attacker's fall distance so they take no fall damage.</li>
- * </ul>
- * The DamageListener has already applied {@code damageMultiplier}; this class
- * adds the fall-height component on top.
- */
 public final class MaceSmashAbility implements Ability {
 
     private final RelicWeaponPlugin plugin;
@@ -34,12 +26,22 @@ public final class MaceSmashAbility implements Ability {
         if (fallDistance <= 0) return;
 
         // ── Fall-height bonus damage ─────────────────────────────────────────
+        // We directly subtract health instead of calling le.damage() to avoid
+        // re-firing EntityDamageByEntityEvent and causing a StackOverflowError.
         double bonus = fallDistance * plugin.cfg().getFallDamagePerBlock();
         double cap   = plugin.cfg().getFallDamageCap();
         if (cap > 0) bonus = Math.min(bonus, cap);
 
-        if (victim instanceof LivingEntity le) {
-            le.damage(bonus, attacker);
+        if (bonus > 0 && victim instanceof LivingEntity le) {
+            AttributeInstance maxHpAttr = le.getAttribute(Attribute.MAX_HEALTH);
+            double maxHp = maxHpAttr != null ? maxHpAttr.getValue() : 20.0;
+            double newHp = Math.max(0, le.getHealth() - bonus);
+            le.setHealth(Math.min(newHp, maxHp));
+
+            // Show damage visually (red flash + hurt sound)
+            le.playHurtAnimation(0f);
+            victim.getWorld().playSound(
+                victim.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.8f, 1.0f);
         }
 
         // ── Wind-burst AOE knockback ─────────────────────────────────────────
