@@ -1,0 +1,27 @@
+name: RelicWeaponPlugin
+version: '${version}'
+main: dev.relicweapon.RelicWeaponPlugin
+description: '${description}'
+api-version: '1.21'
+authors:
+  - RelicDev
+website: https://github.com/your-username/RelicWeaponPlugin
+
+commands:
+  relicweapon:
+    description: Give yourself a Relic Weapon
+    usage: /relicweapon [give|reload]
+    aliases:
+      - rw
+    permission: relicweapon.use
+
+permissions:
+  relicweapon.use:
+    description: Allows use of Relic Weapon commands
+    default: op
+  relicweapon.give:
+    description: Allows giving Relic Weapons
+    default: op
+  relicweapon.reload:
+    description: Allows reloading the config
+    default: op
