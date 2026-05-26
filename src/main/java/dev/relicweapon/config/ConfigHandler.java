@@ -128,7 +128,8 @@ public final class ConfigHandler {
 
     public List<Component> getLoreComponents() {
         return lore.stream()
-                   .map(line -> LegacyComponentSerializer.legacyAmpersand().deserialize(line))
-                   .toList();
+               .map(line -> LegacyComponentSerializer.legacyAmpersand().deserialize(line))
+               .map(component -> (Component) component) // Explicitly cast to Component
+               .toList();
     }
 }
