@@ -5,13 +5,17 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,6 +30,12 @@ public final class ThrowReturnAbility implements Ability {
      * InteractListener checks this to allow our projectile through.
      */
     public final Set<UUID> ourThrows = new HashSet<>();
+
+    /**
+     * Stores the original ItemMeta (including enchants) before the weapon
+     * is thrown, so we can restore it exactly when it returns.
+     */
+    private final Map<UUID, ItemMeta> savedMeta = new HashMap<>();
 
     public ThrowReturnAbility(RelicWeaponPlugin plugin) {
         this.plugin = plugin;
@@ -42,6 +52,12 @@ public final class ThrowReturnAbility implements Ability {
             return;
         }
 
+        // Save meta (enchants, name, lore, model data) BEFORE removing the item
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            savedMeta.put(player.getUniqueId(), meta.clone());
+        }
+
         // Remove one item from hand
         item.subtract(1);
 
@@ -56,10 +72,10 @@ public final class ThrowReturnAbility implements Ability {
         trident.setLoyaltyLevel(0);
         trident.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
 
-        // Clear flag immediately after launch
+        // Clear throw flag immediately after launch
         ourThrows.remove(player.getUniqueId());
 
-        // Update model state on a new item if any remain
+        // Update model state on remaining item if any
         ItemStack held = player.getInventory().getItemInMainHand();
         if (plugin.items().isRelicWeapon(held)) {
             plugin.items().setModelState(held, "thrown");
@@ -82,8 +98,7 @@ public final class ThrowReturnAbility implements Ability {
     }
 
     @Override
-    public void onProjectileHit(Player owner, Trident projectile,
-                                 org.bukkit.entity.Entity hitEntity) {
+    public void onProjectileHit(Player owner, Trident projectile, Entity hitEntity) {
         if (!plugin.cfg().isThrowEnabled()) return;
         if (!plugin.cfg().isReturnOnHit()) return;
 
@@ -148,7 +163,17 @@ public final class ThrowReturnAbility implements Ability {
 
     private void restoreItem(Player player) {
         ItemStack weapon = plugin.items().createRelicWeapon();
-        plugin.items().setModelState(weapon, "idle");
+
+        // Restore original meta (enchants, custom name, lore, model data)
+        // so nothing is lost after the throw/return cycle
+        ItemMeta saved = savedMeta.remove(player.getUniqueId());
+        if (saved != null) {
+            weapon.setItemMeta(saved);
+        } else {
+            // Fallback — no saved meta, just reset to idle model
+            plugin.items().setModelState(weapon, "idle");
+        }
+
         player.getInventory().addItem(weapon);
         player.getWorld().playSound(
             player.getLocation(), Sound.ITEM_TRIDENT_RETURN, 1f, 1f);
