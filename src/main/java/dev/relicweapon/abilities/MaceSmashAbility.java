@@ -1,6 +1,7 @@
 package dev.relicweapon.abilities;
 
 import dev.relicweapon.RelicWeaponPlugin;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -23,11 +24,9 @@ public final class MaceSmashAbility implements Ability {
     @Override
     public void onHitEntity(Player attacker, Entity victim,
                              ItemStack weapon, double fallDistance) {
-        if (fallDistance <= 0) return;
+        if (fallDistance < 2.0) return;
 
         // ── Fall-height bonus damage ─────────────────────────────────────────
-        // We directly subtract health instead of calling le.damage() to avoid
-        // re-firing EntityDamageByEntityEvent and causing a StackOverflowError.
         double bonus = fallDistance * plugin.cfg().getFallDamagePerBlock();
         double cap   = plugin.cfg().getFallDamageCap();
         if (cap > 0) bonus = Math.min(bonus, cap);
@@ -38,7 +37,6 @@ public final class MaceSmashAbility implements Ability {
             double newHp = Math.max(0, le.getHealth() - bonus);
             le.setHealth(Math.min(newHp, maxHp));
 
-            // Show damage visually (red flash + hurt sound)
             le.playHurtAnimation(0f);
             victim.getWorld().playSound(
                 victim.getLocation(), Sound.ENTITY_PLAYER_HURT, 0.8f, 1.0f);
@@ -48,23 +46,37 @@ public final class MaceSmashAbility implements Ability {
         double radius = plugin.cfg().getWindBurstRadius();
         double power  = plugin.cfg().getWindBurstPower();
 
-        if (radius > 0 && fallDistance > 1.5) {
-            Collection<Entity> nearby = victim.getWorld()
-                .getNearbyEntities(victim.getLocation(), radius, radius, radius);
+        if (radius > 0) {
+            // Knock back nearby entities away from impact point
+            victim.getWorld()
+                .getNearbyEntities(victim.getLocation(), radius, radius, radius)
+                .stream()
+                .filter(e -> !e.equals(attacker) && !e.equals(victim))
+                .filter(e -> e instanceof LivingEntity)
+                .forEach(e -> {
+                    Vector away = e.getLocation()
+                                   .toVector()
+                                   .subtract(victim.getLocation().toVector());
+                    if (away.lengthSquared() > 0) {
+                        away.normalize().multiply(power).setY(0.6);
+                        e.setVelocity(away);
+                    }
+                });
 
-            for (Entity nearby_entity : nearby) {
-                if (nearby_entity.equals(attacker)) continue;
-                Vector away = nearby_entity.getLocation()
-                                           .toVector()
-                                           .subtract(victim.getLocation().toVector())
-                                           .normalize()
-                                           .multiply(power)
-                                           .setY(0.5);
-                nearby_entity.setVelocity(away);
+            // Also knock back the victim itself
+            if (victim instanceof LivingEntity) {
+                Vector victimKnock = victim.getLocation()
+                    .getDirection().multiply(-power).setY(0.8);
+                victim.setVelocity(victimKnock);
             }
 
             victim.getWorld().playSound(
                 victim.getLocation(), Sound.ENTITY_BREEZE_WIND_BURST, 1f, 0.9f);
+            victim.getWorld().spawnParticle(
+                Particle.SWEEP_ATTACK,
+                victim.getLocation().add(0, 1, 0),
+                20, radius * 0.5, 0.5, radius * 0.5, 0.1
+            );
         }
 
         // ── Prevent attacker taking their own fall damage ────────────────────
