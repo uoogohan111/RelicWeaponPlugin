@@ -37,7 +37,7 @@ public final class ImpactAbility implements Ability {
         // Impact sound; pitch increases with fall height (mace feel)
         float pitch = (float) Math.min(2.0, 1.0 + fallDistance * 0.05);
         victim.getWorld().playSound(
-            victim.getLocation(), Sound.ENTITY_MACE_SMASH_AIR, 1f, pitch);
+            victim.getLocation(), Sound.ITEM_MACE_SMASH_AIR, 1f, pitch);
 
         // If we fell a significant distance, add landing shockwave particles
         if (fallDistance > 3.0) {
